@@ -1,5 +1,4 @@
 use num_traits::{Float, Zero};
-use rand::Rng;
 use std::{io::Error, iter};
 
 #[derive(Debug)]
@@ -74,7 +73,7 @@ impl<F: Float + Zero> Matrix<F> {
     }
 
     pub fn randomize(mut self) -> Result<Self, Error> {
-        use rand::thread_rng;
+        use rand::{thread_rng, Rng};
         let mut rng = thread_rng();
 
         for i in 0..self.shape.rows {
