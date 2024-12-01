@@ -247,6 +247,7 @@ dependencies = [
  "matrix",
  "num",
  "num-traits",
+ "rand",
 ]
 
 [[package]]

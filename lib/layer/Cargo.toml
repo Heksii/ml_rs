@@ -7,3 +7,4 @@ edition = "2021"
 matrix = {path="../matrix"}
 num = "0.4.3"
 num-traits = "0.2.19"
+rand = "0.8.5"

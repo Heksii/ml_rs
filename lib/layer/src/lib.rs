@@ -35,7 +35,28 @@ impl<F: Float + Zero> Layer<F> {
         Ok(Self {
             shape,
             weights: Matrix::zeros(shape.input_size, shape.output_size)?,
-            biases: Matrix::zeros(shape.output_size, 1)?,
+            biases: Matrix::zeros(1, shape.output_size)?,
         })
+    }
+
+    pub fn randomize(mut self) -> Result<Self, Error> {
+        use rand::{thread_rng, Rng};
+        let mut rng = thread_rng();
+
+        for j in 0..self.shape.output_size {
+            for i in 0..self.shape.input_size {
+                self.weights
+                    .set(i, j, F::from(rng.gen_range(-1f64..1f64)).unwrap())?;
+            }
+
+            self.biases
+                .set(0, j, F::from(rng.gen_range(-1f64..1f64)).unwrap())?
+        }
+
+        Ok(self)
+    }
+
+    pub fn forward(&self, in_data: Matrix<F>) -> Result<Matrix<F>, Error> {
+        Ok(in_data.dot(&self.weights)?.add(&self.biases)?)
     }
 }
