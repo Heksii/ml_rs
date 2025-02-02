@@ -1,24 +1,24 @@
 use num_traits::{Float, Zero};
 use std::{io::Error, iter};
 
-#[derive(Debug)]
-pub struct Shape {
+#[derive(Debug, Copy, Clone)]
+pub struct MatrixShape {
     pub rows: usize,
     pub cols: usize,
 }
 
-impl Shape {
+impl MatrixShape {
     fn parse(rows: usize, cols: usize) -> Result<Self, Error> {
         if rows == 0 || cols == 0 {
             return Err(Error::other(format!(
-                "matrix shape dimensions cannot be zero: rows({rows}), cols({cols})",
+                "matrix shape dimensions cannot be zero: ({rows} x {cols})",
             )));
         }
 
         Ok(Self { rows, cols })
     }
 
-    fn validate_equal(shape_a: &Shape, shape_b: &Shape) -> Result<Self, Error> {
+    fn validate_equal(shape_a: &MatrixShape, shape_b: &MatrixShape) -> Result<Self, Error> {
         if shape_a != shape_b {
             return Err(Error::other(format!(
                 "mismatched shapes: ({} x {}), ({} x {})",
@@ -29,10 +29,13 @@ impl Shape {
         Self::parse(shape_a.rows, shape_a.cols)
     }
 
-    fn validate_for_dot_product(shape_a: &Shape, shape_b: &Shape) -> Result<Self, Error> {
+    fn validate_dot_product_result(
+        shape_a: &MatrixShape,
+        shape_b: &MatrixShape,
+    ) -> Result<Self, Error> {
         if shape_a.cols != shape_b.rows {
             return Err(Error::other(format!(
-                "matrix A columns ({}) does not equal matrix B rows({})",
+                "matrix A column count ({}) doesn't equal matrix B rows({})",
                 shape_a.cols, shape_b.rows
             )));
         }
@@ -41,15 +44,15 @@ impl Shape {
     }
 }
 
-impl PartialEq for Shape {
+impl PartialEq for MatrixShape {
     fn eq(&self, other: &Self) -> bool {
         self.rows == other.rows && self.cols == other.cols
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Matrix<F: Float + Zero> {
-    pub shape: Shape,
+    pub shape: MatrixShape,
     elements: Vec<F>,
 }
 
@@ -60,14 +63,14 @@ impl<F: Float + Zero> Matrix<F> {
         }
 
         Ok(Self {
-            shape: Shape::parse(rows, cols)?,
+            shape: MatrixShape::parse(rows, cols)?,
             elements,
         })
     }
 
     pub fn zeros(rows: usize, cols: usize) -> Result<Self, Error> {
         Ok(Self {
-            shape: Shape::parse(rows, cols)?,
+            shape: MatrixShape::parse(rows, cols)?,
             elements: iter::repeat(F::zero()).take(rows * cols).collect(),
         })
     }
@@ -117,7 +120,7 @@ impl<F: Float + Zero> Matrix<F> {
     }
 
     pub fn add(&self, other: &Self) -> Result<Self, Error> {
-        let shape = Shape::validate_equal(&self.shape, &other.shape)?;
+        let shape = MatrixShape::validate_equal(&self.shape, &other.shape)?;
 
         let output_elements = self
             .elements
@@ -133,7 +136,7 @@ impl<F: Float + Zero> Matrix<F> {
     }
 
     pub fn sub(&self, other: &Self) -> Result<Self, Error> {
-        let shape = Shape::validate_equal(&self.shape, &other.shape)?;
+        let shape = MatrixShape::validate_equal(&self.shape, &other.shape)?;
 
         let output_elements = self
             .elements
@@ -149,7 +152,7 @@ impl<F: Float + Zero> Matrix<F> {
     }
 
     pub fn mul(&self, other: &Self) -> Result<Self, Error> {
-        let shape = Shape::validate_equal(&self.shape, &other.shape)?;
+        let shape = MatrixShape::validate_equal(&self.shape, &other.shape)?;
 
         let output_elements = self
             .elements
@@ -164,8 +167,17 @@ impl<F: Float + Zero> Matrix<F> {
         })
     }
 
+    pub fn scale(&self, scalar: F) -> Result<Self, Error> {
+        let output_elements = self.elements.iter().map(|a| *a * scalar).collect();
+
+        Ok(Matrix {
+            shape: self.shape,
+            elements: output_elements,
+        })
+    }
+
     pub fn transpose(&self) -> Result<Self, Error> {
-        let shape = Shape::parse(self.shape.rows, self.shape.cols)?;
+        let shape = MatrixShape::parse(self.shape.rows, self.shape.cols)?;
         let mut output = Self::zeros(shape.cols, shape.rows)?;
 
         for row in 0..self.shape.rows {
@@ -178,7 +190,7 @@ impl<F: Float + Zero> Matrix<F> {
     }
 
     pub fn dot(&self, other: &Self) -> Result<Self, Error> {
-        let shape = Shape::validate_for_dot_product(&self.shape, &other.shape)?;
+        let shape = MatrixShape::validate_dot_product_result(&self.shape, &other.shape)?;
         let mut output = Self::zeros(shape.rows, shape.cols)?;
 
         for i in 0..shape.rows {
@@ -194,6 +206,20 @@ impl<F: Float + Zero> Matrix<F> {
                     }),
                 )?;
             }
+        }
+
+        Ok(output)
+    }
+
+    pub fn sum_rows(&self) -> Result<Self, Error> {
+        let shape = MatrixShape::parse(1, self.shape.cols)?;
+        let mut output = Self::zeros(shape.rows, shape.cols)?;
+
+        for j in 0..self.shape.cols {
+            let sum =
+                (0..self.shape.rows).fold(F::zero(), |acc: F, i| acc + self.get(i, j).unwrap());
+
+            output.set(0, j, sum)?;
         }
 
         Ok(output)
